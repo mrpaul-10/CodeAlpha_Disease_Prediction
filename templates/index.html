@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diabetes Risk Screening</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main class="container">
+<header class="header">
+<div class="logo">+</div>
+<div>
+<h1>Diabetes Risk Screening</h1>
+<p class="subtitle">AI-powered diabetes risk prediction using XGBoost</p>
+</div>
+</header>
+<div class="notice">
+<strong>Important:</strong> This application uses the Pima Indians Diabetes Dataset (PIDD). It is an educational project only and is not a medical diagnosis. Please consult a healthcare professional for medical advice.
+</div>
+<section class="card">
+<div class="section-header">
+<div>
+<h2>Patient Information</h2>
+<p>Enter the patient's medical information below.</p>
+</div>
+<div class="example-buttons">
+<form action="/example/high" method="POST">
+<button class="btn btn-light" type="submit">Higher Risk Example</button>
+</form>
+<form action="/example/low" method="POST">
+<button class="btn btn-light" type="submit">Lower Risk Example</button>
+</form>
+</div>
+</div>
+<form action="/" method="POST">
+<div class="form-grid">
+<div class="form-group">
+<label>Pregnancies</label>
+<input type="number" name="preg" min="0" max="20" value="{{ values.preg }}" required>
+</div>
+<div class="form-group">
+<label>Age (years)</label>
+<input type="number" name="age" min="18" max="100" value="{{ values.age }}" required>
+</div>
+<div class="form-group">
+<label>Diabetes Pedigree Function</label>
+<input type="number" name="dpf" min="0" max="3" step="0.01" value="{{ values.dpf }}" required>
+<small>A score related to family history of diabetes.</small>
+</div>
+<div class="form-group">
+<label>Glucose (mg/dL)</label>
+<input type="number" name="glucose" min="40" max="250" value="{{ values.glucose }}" required>
+<label class="check">
+<input type="checkbox" name="u_glu" {% if values.u_glu %}checked{% endif %}>
+Glucose value is unknown
+</label>
+</div>
+<div class="form-group">
+<label>Body Mass Index (BMI)</label>
+<input type="number" name="bmi" min="10" max="70" step="0.1" value="{{ values.bmi }}" required>
+<label class="check">
+<input type="checkbox" name="u_bmi" {% if values.u_bmi %}checked{% endif %}>
+BMI value is unknown
+</label>
+</div>
+<div class="form-group">
+<label>Blood Pressure (mmHg)</label>
+<input type="number" name="bp" min="30" max="140" value="{{ values.bp }}" required>
+<label class="check">
+<input type="checkbox" name="u_bp" {% if values.u_bp %}checked{% endif %}>
+Blood pressure is unknown
+</label>
+</div>
+<div class="form-group">
+<label>Skin Thickness (mm)</label>
+<input type="number" name="skin" min="5" max="100" value="{{ values.skin }}" required>
+<label class="check">
+<input type="checkbox" name="u_skin" {% if values.u_skin %}checked{% endif %}>
+Skin thickness is unknown
+</label>
+</div>
+<div class="form-group">
+<label>Insulin (mu U/ml)</label>
+<input type="number" name="insulin" min="10" max="900" value="{{ values.insulin }}" required>
+<label class="check">
+<input type="checkbox" name="u_ins" {% if values.u_ins %}checked{% endif %}>
+Insulin value is unknown
+</label>
+</div>
+</div>
+<button type="submit" class="btn btn-primary submit-btn">Calculate Risk</button>
+</form>
+</section>
+{% if error %}
+<div class="notice error">{{ error }}</div>
+{% endif %}
+{% if result %}
+<section class="result-card {% if result.high %}high{% else %}low{% endif %}">
+<p class="result-label">Screening Result</p>
+<h2>{% if result.high %}Higher Risk{% else %}Lower Risk{% endif %}</h2>
+<div class="probability">{{ "%.0f"|format(result.risk * 100) }}%</div>
+<p>
+{% if result.high %}
+The predicted probability is at or above the screening threshold. Consider discussing appropriate testing with a healthcare professional.
+{% else %}
+The predicted probability is below the screening threshold. This result does not rule out diabetes.
+{% endif %}
+</p>
+<div class="progress-track">
+<div class="progress-fill" style="--bar-width: {{ (result.risk * 100)|round(1) }}%;"></div>
+</div>
+<small>Screening Threshold: {{ "%.2f"|format(threshold) }} ({{ "%.0f"|format(threshold * 100) }}%)</small>
+</section>
+{% if result.unknown_used %}
+<div class="notice">
+<strong>Unknown Values:</strong> {{ result.unknown_used|join(", ") }}
+<p>The corresponding training dataset median values were used for these fields.</p>
+</div>
+{% endif %}
+<section class="card">
+<h2>Feature Contributions for This Prediction</h2>
+<p class="description">Positive values increase the model score. Negative values decrease the model score. Unit: Log-odds.</p>
+<div class="chart">
+{% for item in result.contributions %}
+<div class="chart-row">
+<span class="feature-name">{{ item.name }}</span>
+<div class="chart-track">
+<div class="chart-bar {{ 'negative' if item.value < 0 else '' }}" style="--bar-width: {{ ((item.value|abs / 5) * 100)|round(1) }}%;"></div>
+</div>
+<span class="feature-value">{{ "%.3f"|format(item.value) }}</span>
+</div>
+{% endfor %}
+</div>
+</section>
+<section class="card">
+<h2>Overall Model Feature Importance</h2>
+<p class="description">This chart shows which features the model relies on most overall.</p>
+<div class="chart">
+{% for item in result.importance %}
+<div class="chart-row">
+<span class="feature-name">{{ item.name }}</span>
+<div class="chart-track">
+<div class="chart-bar" style="--bar-width: {{ (item.value * 100)|round(1) }}%;"></div>
+</div>
+<span class="feature-value">{{ "%.3f"|format(item.value) }}</span>
+</div>
+{% endfor %}
+</div>
+</section>
+{% endif %}
+<footer>
+<p>Dataset: Pima Indians Diabetes Dataset (PIDD), CC BY 4.0.</p>
+<p>Model: Tuned XGBoost. Threshold: {{ "%.2f"|format(threshold) }}.</p>
+<p>Educational Project Only.</p>
+</footer>
+</main>
+</body>
+</html>
